@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulasi Geometri Ruang 3D - Jarak Titik ke Garis & Bidang</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Three.js & OrbitControls CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            user-select: none;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            outline: none;
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 h-screen overflow-hidden flex flex-col md:flex-row">
+
+    <div class="w-full md:w-96 bg-slate-800 border-r border-slate-700 flex flex-col h-1/2 md:h-full z-10 shadow-2xl overflow-y-auto">
+        <!-- Header -->
+        <div class="p-4 bg-slate-900/80 backdrop-blur border-b border-slate-700 sticky top-0 z-20">
+            <div class="flex items-center space-x-2 text-indigo-400 mb-1">
+                <i data-lucide="box" class="w-6 h-6"></i>
+                <h1 class="text-xl font-extrabold tracking-tight text-white">Geometri 3D Interaktif</h1>
+            </div>
+            <p class="text-xs text-slate-400">Konsep Jarak Terpendek & Tegak Lurus (90°)</p>
+        </div>
+
+        <!-- Mode Tabs -->
+        <div class="p-3 bg-slate-800/90 border-b border-slate-700">
+            <div class="grid grid-cols-2 gap-1 p-1 bg-slate-900 rounded-lg">
+                <button id="tabGaris" onclick="setMode('garis')" class="py-2 px-3 text-xs md:text-sm font-semibold rounded-md transition-all duration-200 bg-indigo-600 text-white shadow">
+                    Titik ke Garis
+                </button>
+                <button id="tabBidang" onclick="setMode('bidang')" class="py-2 px-3 text-xs md:text-sm font-semibold rounded-md transition-all duration-200 text-slate-400 hover:text-white">
+                    Titik ke Bidang
+                </button>
+            </div>
+        </div>
+
+        <div class="p-4 space-y-5 flex-1">
+
+            <!-- Shape Selection -->
+            <div class="space-y-1.5">
+                <label class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                    <i data-lucide="shapes" class="w-4 h-4 text-indigo-400"></i> Pilih Bangun Ruang
+                </label>
+                <select id="shapeSelect" onchange="onShapeChange()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                    <option value="kubus">Kubus (ABCD.EFGH)</option>
+                    <option value="balok">Balok (ABCD.EFGH)</option>
+                    <option value="limas">Limas Segi Empat (T.ABCD)</option>
+                </select>
+            </div>
+
+            <!-- Target Settings -->
+            <div class="space-y-3 p-3 bg-slate-900/60 border border-slate-700/80 rounded-xl">
+                <div class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                    <i data-lucide="target" class="w-4 h-4 text-emerald-400"></i> Elemen Target
+                </div>
+
+                <!-- Titik Awal -->
+                <div class="flex items-center justify-between">
+                    <label class="text-xs text-slate-300">Titik Awal (Sudut):</label>
+                    <select id="startPointSelect" onchange="updateTargetSelection()" class="bg-slate-800 border border-slate-700 rounded-md px-2 py-1 text-xs text-emerald-400 font-bold focus:outline-none">
+                    </select>
+                </div>
+
+                <!-- Target Garis / Bidang -->
+                <div class="flex items-center justify-between">
+                    <label id="targetLabel" class="text-xs text-slate-300">Garis Target:</label>
+                    <select id="targetSelect" onchange="updateTargetSelection()" class="bg-slate-800 border border-slate-700 rounded-md px-2 py-1 text-xs text-amber-400 font-bold focus:outline-none">
+                    </select>
+                </div>
+            </div>
+
+            <!-- Slider Posisi Lidi -->
+            <div class="space-y-2 p-3 bg-slate-900/60 border border-slate-700/80 rounded-xl">
+                <div class="flex justify-between items-center">
+                    <label class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                        <i data-lucide="move" class="w-4 h-4 text-amber-400"></i> Geser Posisi Lidi (P)
+                    </label>
+                    <span id="sliderValText" class="text-xs font-mono text-amber-400 font-bold">50%</span>
+                </div>
+                <input id="lidiSlider" type="range" min="0" max="100" value="50" oninput="onSliderMove()" class="w-full accent-amber-500 cursor-pointer h-2 bg-slate-700 rounded-lg">
+                <div id="u2SliderContainer" class="space-y-1 hidden pt-2 border-t border-slate-800">
+                    <div class="flex justify-between text-xs text-slate-400">
+                        <span>Arah U/V Bidang:</span>
+                        <span id="sliderU2ValText" class="font-mono text-cyan-400">50%</span>
+                    </div>
+                    <input id="lidiSlider2" type="range" min="0" max="100" value="50" oninput="onSliderMove()" class="w-full accent-cyan-500 cursor-pointer h-2 bg-slate-700 rounded-lg">
+                </div>
+                <button onclick="snapToPerpendicular()" class="w-full py-2 bg-emerald-600/20 border border-emerald-500/40 hover:bg-emerald-600/30 text-emerald-300 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition">
+                    <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> Cari Jarak Terpendek (90°)
+                </button>
+            </div>
+
+            <!-- Real-time Metrics Card -->
+            <div id="metricsCard" class="p-3.5 bg-slate-900 border border-slate-700 rounded-xl space-y-2 transition-all">
+                <div class="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-800 pb-1.5">
+                    Hasil Pengukuran Real-Time
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div class="p-2 bg-slate-800/80 rounded-lg">
+                        <div class="text-[10px] text-slate-400">Panjang Lidi</div>
+                        <div id="metricLength" class="text-lg font-bold text-white font-mono">0.00 <span class="text-xs font-normal text-slate-400">cm</span></div>
+                    </div>
+                    <div class="p-2 bg-slate-800/80 rounded-lg">
+                        <div class="text-[10px] text-slate-400">Sudut Busur (θ)</div>
+                        <div id="metricAngle" class="text-lg font-bold text-amber-400 font-mono">0.0°</div>
+                    </div>
+                </div>
+                <div id="statusBadge" class="p-2 rounded-lg text-center text-xs font-bold flex items-center justify-center gap-1.5 bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                    <i data-lucide="info" class="w-3.5 h-3.5"></i> Geser lidi untuk mencari sudut 90°
+                </div>
+            </div>
+
+            <!-- Concept Explanation Box -->
+            <div class="p-3 bg-indigo-950/40 border border-indigo-800/50 rounded-xl space-y-1.5">
+                <div class="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
+                    <i data-lucide="lightbulb" class="w-4 h-4 text-indigo-400"></i> Konsep Utama
+                </div>
+                <p id="conceptDesc" class="text-xs text-indigo-200/80 leading-relaxed">
+                    Jarak antara titik dan garis adalah **panjang ruas garis terpendek** yang menghubungkan titik tersebut ke garis. Lintasan terpendek ini **selalu tegak lurus (membentuk sudut 90°)**.
+                </p>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="flex-1 relative bg-slate-950 h-1/2 md:h-full">
+        <!-- Canvas target -->
+        <div id="canvas-container" class="w-full h-full relative"></div>
+
+        <!-- Camera Controls Hint -->
+        <div class="absolute top-4 right-4 bg-slate-900/80 backdrop-blur border border-slate-700/80 rounded-xl p-2.5 text-xs text-slate-300 shadow-xl pointer-events-none flex items-center gap-3">
+            <div class="flex items-center gap-1"><i data-lucide="mouse-pointer" class="w-3.5 h-3.5 text-indigo-400"></i> Putar: Drag</div>
+            <div class="flex items-center gap-1"><i data-lucide="move" class="w-3.5 h-3.5 text-indigo-400"></i> Pan: Right Drag</div>
+            <div class="flex items-center gap-1"><i data-lucide="zoom-in" class="w-3.5 h-3.5 text-indigo-400"></i> Zoom: Scroll</div>
+        </div>
+
+        <!-- Legend Overlay -->
+        <div class="absolute bottom-4 left-4 bg-slate-900/80 backdrop-blur border border-slate-700/80 rounded-xl p-3 text-xs text-slate-300 shadow-xl flex items-center gap-4">
+            <div class="flex items-center gap-2">
+                <div class="w-3 h-3 rounded-full bg-amber-400"></div>
+                <span>Lidi Interaktif</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <div class="w-3 h-3 rounded-full bg-emerald-400"></div>
+                <span>Tegak Lurus (90°)</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <div class="w-3.5 h-3.5 border-2 border-indigo-400 rounded-full"></div>
+                <span>Busur Fisik 180°</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let scene, camera, renderer, controls;
+        let currentMode = 'garis';
+        let currentShape = 'kubus';
+
+        let shapeGroup, protractorGroup;
+        let protractorTexture = null;
+
+        let points = {};
+        let activeStartPtKey = 'H';
+        let activeTargetKey = 'AC';
+
+        const shapeDimensions = {
+            kubus: { a: 6, b: 6, c: 6 },
+            balok: { a: 8, b: 5, c: 6 },
+            limas: { a: 6, b: 6, c: 6 }
+        };
+
+        function createProtractorCanvasTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 1024;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+
+            const cx = canvas.width / 2;
+            const cy = canvas.height - 20;
+            const rOuter = 460;
+            const rInner = 200;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Protractor Body Plastic Base
+            ctx.beginPath();
+            ctx.arc(cx, cy, rOuter, Math.PI, 0, false);
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.88)';
+            ctx.fill();
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = '#334155';
+            ctx.stroke();
+
+            // Inner Arch
+            ctx.beginPath();
+            ctx.arc(cx, cy, rInner, Math.PI, 0, false);
+            ctx.stroke();
+
+            // Center Point
+            ctx.beginPath();
+            ctx.arc(cx, cy, 10, 0, Math.PI * 2);
+            ctx.fillStyle = '#dc2626';
+            ctx.fill();
+
+            // Degree Ticks & Numbers
+            ctx.fillStyle = '#0f172a';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            for (let deg = 0; deg <= 180; deg++) {
+                const rad = Math.PI - (deg * Math.PI / 180);
+                const cos = Math.cos(rad);
+                const sin = Math.sin(rad);
+
+                let tickLen = 12;
+                let lineWidth = 1.5;
+
+                if (deg % 10 === 0) {
+                    tickLen = 30;
+                    lineWidth = 3;
+                } else if (deg % 5 === 0) {
+                    tickLen = 20;
+                    lineWidth = 2;
+                }
+
+                const x1 = cx + rOuter * cos;
+                const y1 = cy - rOuter * sin;
+                const x2 = cx + (rOuter - tickLen) * cos;
+                const y2 = cy - (rOuter - tickLen) * sin;
+
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.lineWidth = lineWidth;
+                ctx.strokeStyle = '#1e293b';
+                ctx.stroke();
+
+                if (deg % 10 === 0) {
+                    // Outer Numbers (0-180)
+                    const rTextOuter = rOuter - 50;
+                    const txOuter = cx + rTextOuter * cos;
+                    const tyOuter = cy - rTextOuter * sin;
+
+                    ctx.font = deg === 90 ? 'bold 28px Inter, sans-serif' : 'bold 20px Inter, sans-serif';
+                    ctx.fillStyle = deg === 90 ? '#dc2626' : '#0f172a';
+                    ctx.fillText(deg.toString(), txOuter, tyOuter);
+
+                    // Inner Numbers (180-0)
+                    const rTextInner = rInner + 40;
+                    const txInner = cx + rTextInner * cos;
+                    const tyInner = cy - rTextInner * sin;
+
+                    ctx.font = deg === 90 ? 'bold 22px Inter, sans-serif' : '16px Inter, sans-serif';
+                    ctx.fillStyle = deg === 90 ? '#dc2626' : '#475569';
+                    ctx.fillText((180 - deg).toString(), txInner, tyInner);
+
+                    // Rays
+                    ctx.beginPath();
+                    ctx.moveTo(cx + (rInner + 10) * cos, cy - (rInner + 10) * sin);
+                    ctx.lineTo(cx + (rOuter - 65) * cos, cy - (rOuter - 65) * sin);
+                    ctx.lineWidth = 1;
+                    ctx.strokeStyle = 'rgba(100, 116, 139, 0.3)';
+                    ctx.stroke();
+                }
+            }
+
+            // Baseline
+            ctx.beginPath();
+            ctx.moveTo(cx - rOuter, cy);
+            ctx.lineTo(cx + rOuter, cy);
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = '#0f172a';
+            ctx.stroke();
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.needsUpdate = true;
+            return texture;
+        }
+
+        function createTextSprite(text) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 128;
+            canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+
+            // Draw glowing background circle for high contrast visibility
+            ctx.beginPath();
+            ctx.arc(64, 64, 52, 0, Math.PI * 2);
+            ctx.fillStyle = '#0284c7'; // Sky blue fill
+            ctx.fill();
+            ctx.lineWidth = 8;
+            ctx.strokeStyle = '#ffffff'; // Crisp white border
+            ctx.stroke();
+
+            // Draw vertex letter
+            ctx.font = 'bold 64px Inter, sans-serif';
+            ctx.fillStyle = '#ffffff';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, 64, 64);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.needsUpdate = true;
+
+            const spriteMaterial = new THREE.SpriteMaterial({ 
+                map: texture, 
+                depthTest: false, // Ensures letter labels stay visible on top of dots
+                transparent: true
+            });
+            const sprite = new THREE.Sprite(spriteMaterial);
+            sprite.scale.set(1.2, 1.2, 1.0); // Size in 3D space
+            return sprite;
+        }
+
+        function initScene() {
+            const container = document.getElementById('canvas-container');
+            
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0f172a);
+
+            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+            camera.position.set(12, 10, 16);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            container.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+
+            protractorTexture = createProtractorCanvasTexture();
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(15, 25, 15);
+            scene.add(dirLight);
+
+            const dirLight2 = new THREE.DirectionalLight(0x818cf8, 0.4);
+            dirLight2.position.set(-15, -10, -15);
+            scene.add(dirLight2);
+
+            const gridHelper = new THREE.GridHelper(30, 30, 0x334155, 0x1e293b);
+            gridHelper.position.y = -0.01;
+            scene.add(gridHelper);
+
+            shapeGroup = new THREE.Group();
+            protractorGroup = new THREE.Group();
+            scene.add(shapeGroup);
+            scene.add(protractorGroup);
+
+            window.addEventListener('resize', onWindowResize);
+
+            onShapeChange();
+            animate();
+        }
+
+        function generateVertices(shapeType) {
+            const dim = shapeDimensions[shapeType];
+            const pts = {};
+
+            if (shapeType === 'kubus' || shapeType === 'balok') {
+                const w = dim.a, h = dim.c, d = dim.b;
+                const x0 = -w/2, x1 = w/2;
+                const y0 = 0, y1 = h;
+                const z0 = -d/2, z1 = d/2;
+
+                pts['A'] = new THREE.Vector3(x0, y0, z1);
+                pts['B'] = new THREE.Vector3(x1, y0, z1);
+                pts['C'] = new THREE.Vector3(x1, y0, z0);
+                pts['D'] = new THREE.Vector3(x0, y0, z0);
+
+                pts['E'] = new THREE.Vector3(x0, y1, z1);
+                pts['F'] = new THREE.Vector3(x1, y1, z1);
+                pts['G'] = new THREE.Vector3(x1, y1, z0);
+                pts['H'] = new THREE.Vector3(x0, y1, z0);
+            } else if (shapeType === 'limas') {
+                const w = dim.a, h = dim.c, d = dim.b;
+                const x0 = -w/2, x1 = w/2;
+                const z0 = -d/2, z1 = d/2;
+
+                pts['A'] = new THREE.Vector3(x0, 0, z1);
+                pts['B'] = new THREE.Vector3(x1, 0, z1);
+                pts['C'] = new THREE.Vector3(x1, 0, z0);
+                pts['D'] = new THREE.Vector3(x0, 0, z0);
+                pts['T'] = new THREE.Vector3(0, h, 0);
+            }
+            return pts;
+        }
+
+        function buildShapeMesh() {
+            while(shapeGroup.children.length > 0){ 
+                shapeGroup.remove(shapeGroup.children[0]); 
+            }
+
+            points = generateVertices(currentShape);
+
+            const lineMaterial = new THREE.LineBasicMaterial({ color: 0x94a3b8, linewidth: 2 });
+            let edgePairs = [];
+
+            if (currentShape === 'kubus' || currentShape === 'balok') {
+                edgePairs = [
+                    ['A','B'], ['B','C'], ['C','D'], ['D','A'],
+                    ['E','F'], ['F','G'], ['G','H'], ['H','E'],
+                    ['A','E'], ['B','F'], ['C','G'], ['D','H']
+                ];
+            } else if (currentShape === 'limas') {
+                edgePairs = [
+                    ['A','B'], ['B','C'], ['C','D'], ['D','A'],
+                    ['T','A'], ['T','B'], ['T','C'], ['T','D']
+                ];
+            }
+
+            const geometry = new THREE.BufferGeometry();
+            const linePositions = [];
+
+            edgePairs.forEach(pair => {
+                const p1 = points[pair[0]];
+                const p2 = points[pair[1]];
+                linePositions.push(p1.x, p1.y, p1.z);
+                linePositions.push(p2.x, p2.y, p2.z);
+            });
+
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(linePositions, 3));
+            const wireframe = new THREE.LineSegments(geometry, lineMaterial);
+            shapeGroup.add(wireframe);
+
+            // 3D Spheres for Vertices
+            const sphereGeo = new THREE.SphereGeometry(0.22, 16, 16);
+            const sphereMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.2 });
+
+            Object.keys(points).forEach(key => {
+                const pt = points[key];
+                
+                // Sphere mesh
+                const sphere = new THREE.Mesh(sphereGeo, sphereMat);
+                sphere.position.copy(pt);
+                shapeGroup.add(sphere);
+
+                // Attach 3D Sprite Label directly on top/offset from vertex dot
+                const labelSprite = createTextSprite(key);
+                // Slight outward offset so it doesn't clip with edges
+                const offset = pt.clone().normalize().multiplyScalar(0.45);
+                labelSprite.position.copy(pt).add(offset);
+                shapeGroup.add(labelSprite);
+            });
+        }
+
+        function updateDropdownOptions() {
+            const startSelect = document.getElementById('startPointSelect');
+            const targetSelect = document.getElementById('targetSelect');
+
+            startSelect.innerHTML = '';
+            targetSelect.innerHTML = '';
+
+            const pointKeys = Object.keys(points);
+
+            pointKeys.forEach(k => {
+                const opt = document.createElement('option');
+                opt.value = k;
+                opt.innerText = `Titik ${k}`;
+                startSelect.appendChild(opt);
+            });
+
+            if (currentMode === 'garis') {
+                document.getElementById('targetLabel').innerText = "Garis Target:";
+                document.getElementById('u2SliderContainer').classList.add('hidden');
+                
+                let lineOptions = [];
+                if (currentShape === 'kubus' || currentShape === 'balok') {
+                    lineOptions = ['AC', 'BD', 'EG', 'FH', 'BC', 'CD', 'HG'];
+                } else {
+                    lineOptions = ['AC', 'BD', 'AB', 'BC', 'CD', 'DA'];
+                }
+
+                lineOptions.forEach(line => {
+                    const opt = document.createElement('option');
+                    opt.value = line;
+                    opt.innerText = `Garis ${line}`;
+                    targetSelect.appendChild(opt);
+                });
+
+                startSelect.value = pointKeys.includes('H') ? 'H' : 'T';
+                targetSelect.value = 'AC';
+
+            } else {
+                document.getElementById('targetLabel').innerText = "Bidang Target:";
+                document.getElementById('u2SliderContainer').classList.remove('hidden');
+
+                let planeOptions = [];
+                if (currentShape === 'kubus' || currentShape === 'balok') {
+                    planeOptions = ['ABCD', 'EFGH', 'ABFE', 'CDHG'];
+                } else {
+                    planeOptions = ['ABCD'];
+                }
+
+                planeOptions.forEach(plane => {
+                    const opt = document.createElement('option');
+                    opt.value = plane;
+                    opt.innerText = `Bidang ${plane}`;
+                    targetSelect.appendChild(opt);
+                });
+
+                startSelect.value = pointKeys.includes('H') ? 'H' : 'T';
+                targetSelect.value = planeOptions[0];
+            }
+
+            updateTargetSelection();
+        }
+
+        function updateTargetSelection() {
+            activeStartPtKey = document.getElementById('startPointSelect').value;
+            activeTargetKey = document.getElementById('targetSelect').value;
+            renderSimulation();
+        }
+
+        function onShapeChange() {
+            currentShape = document.getElementById('shapeSelect').value;
+            buildShapeMesh();
+            updateDropdownOptions();
+        }
+
+        function setMode(mode) {
+            currentMode = mode;
+            const tabGaris = document.getElementById('tabGaris');
+            const tabBidang = document.getElementById('tabBidang');
+            const conceptDesc = document.getElementById('conceptDesc');
+
+            if (mode === 'garis') {
+                tabGaris.className = "py-2 px-3 text-xs md:text-sm font-semibold rounded-md transition-all duration-200 bg-indigo-600 text-white shadow";
+                tabBidang.className = "py-2 px-3 text-xs md:text-sm font-semibold rounded-md transition-all duration-200 text-slate-400 hover:text-white";
+                conceptDesc.innerHTML = "Jarak antara titik dan garis adalah **panjang ruas garis terpendek** yang menghubungkan titik tersebut ke garis. Lintasan terpendek ini **selalu tegak lurus (membentuk sudut 90°)**.";
+            } else {
+                tabBidang.className = "py-2 px-3 text-xs md:text-sm font-semibold rounded-md transition-all duration-200 bg-indigo-600 text-white shadow";
+                tabGaris.className = "py-2 px-3 text-xs md:text-sm font-semibold rounded-md transition-all duration-200 text-slate-400 hover:text-white";
+                conceptDesc.innerHTML = "Jarak antara titik dan bidang adalah **panjang garis tegak lurus** dari titik tersebut ke proyeksi terdekatnya di bidang target (Sudut = 90° terhadap garis-garis di bidang).";
+            }
+
+            updateDropdownOptions();
+        }
+
+        function onSliderMove() {
+            const val1 = document.getElementById('lidiSlider').value;
+            document.getElementById('sliderValText').innerText = `${val1}%`;
+
+            const val2 = document.getElementById('lidiSlider2').value;
+            document.getElementById('sliderU2ValText').innerText = `${val2}%`;
+
+            renderSimulation();
+        }
+
+        function renderSimulation() {
+            while(protractorGroup.children.length > 0) {
+                protractorGroup.remove(protractorGroup.children[0]);
+            }
+
+            const startPt = points[activeStartPtKey];
+            if (!startPt) return;
+
+            let targetPtP = new THREE.Vector3();
+            let refVector = new THREE.Vector3(); 
+
+            if (currentMode === 'garis') {
+                const p1Key = activeTargetKey.charAt(0);
+                const p2Key = activeTargetKey.charAt(1);
+                const P1 = points[p1Key];
+                const P2 = points[p2Key];
+
+                const t = parseFloat(document.getElementById('lidiSlider').value) / 100;
+                targetPtP.lerpVectors(P1, P2, t);
+
+                refVector.subVectors(P2, P1).normalize();
+
+                const targetLineGeo = new THREE.BufferGeometry().setFromPoints([P1, P2]);
+                const targetLineMat = new THREE.LineBasicMaterial({ color: 0xf59e0b, linewidth: 5 });
+                const lineMesh = new THREE.Line(targetLineGeo, targetLineMat);
+                protractorGroup.add(lineMesh);
+
+            } else {
+                const quadKeys = activeTargetKey.split('');
+                const P0 = points[quadKeys[0]]; 
+                const P1 = points[quadKeys[1]]; 
+                const P3 = points[quadKeys[3]]; 
+
+                const u = parseFloat(document.getElementById('lidiSlider').value) / 100;
+                const v = parseFloat(document.getElementById('lidiSlider2').value) / 100;
+
+                const vU = new THREE.Vector3().subVectors(P1, P0);
+                const vV = new THREE.Vector3().subVectors(P3, P0);
+
+                targetPtP.copy(P0).addScaledVector(vU, u).addScaledVector(vV, v);
+                refVector.copy(vU).normalize();
+
+                const planeBufferGeo = new THREE.BufferGeometry().setFromPoints([
+                    points[quadKeys[0]], points[quadKeys[1]], points[quadKeys[2]],
+                    points[quadKeys[0]], points[quadKeys[2]], points[quadKeys[3]]
+                ]);
+                const planeMat = new THREE.MeshStandardMaterial({ 
+                    color: 0x0284c7, 
+                    transparent: true, 
+                    opacity: 0.3, 
+                    side: THREE.DoubleSide 
+                });
+                const planeMesh = new THREE.Mesh(planeBufferGeo, planeMat);
+                protractorGroup.add(planeMesh);
+            }
+
+            // Draw Stick (Lidi)
+            const lidiGeo = new THREE.BufferGeometry().setFromPoints([startPt, targetPtP]);
+            const lidiMat = new THREE.LineBasicMaterial({ color: 0xfacc15, linewidth: 5 });
+            const lidiMesh = new THREE.Line(lidiGeo, lidiMat);
+            protractorGroup.add(lidiMesh);
+
+            // Point P marker
+            const pSphereGeo = new THREE.SphereGeometry(0.18, 16, 16);
+            const pSphereMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+            const pSphere = new THREE.Mesh(pSphereGeo, pSphereMat);
+            pSphere.position.copy(targetPtP);
+            protractorGroup.add(pSphere);
+
+            // Angle & Distance Math
+            const lidiVec = new THREE.Vector3().subVectors(startPt, targetPtP);
+            const distance = lidiVec.length();
+
+            const lidiDir = lidiVec.clone().normalize();
+            let cosTheta = lidiDir.dot(refVector);
+            cosTheta = Math.max(-1, Math.min(1, cosTheta));
+            let angleRad = Math.acos(cosTheta);
+            let angleDeg = angleRad * (180 / Math.PI);
+
+            // Build Protractor Plane
+            build3DProtractorPlane(targetPtP, refVector, lidiDir, angleRad);
+
+            // Check Siku-Siku (90 degrees)
+            const isPerp = Math.abs(angleDeg - 90) < 1.0;
+
+            if (isPerp) {
+                drawPerpendicularSquare(targetPtP, refVector, lidiDir);
+            }
+
+            // UI Metrics Update
+            document.getElementById('metricLength').innerHTML = `${distance.toFixed(2)} <span class="text-xs font-normal text-slate-400">cm</span>`;
+            document.getElementById('metricAngle').innerText = `${angleDeg.toFixed(1)}°`;
+
+            const statusBadge = document.getElementById('statusBadge');
+            if (isPerp) {
+                statusBadge.className = "p-2 rounded-lg text-center text-xs font-bold flex items-center justify-center gap-1.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 animate-pulse";
+                statusBadge.innerHTML = `<i data-lucide="check-circle-2" class="w-4 h-4"></i> Jarak Terpendek! (Tegak Lurus = 90°)`;
+            } else {
+                statusBadge.className = "p-2 rounded-lg text-center text-xs font-bold flex items-center justify-center gap-1.5 bg-amber-500/10 text-amber-400 border border-amber-500/20";
+                statusBadge.innerHTML = `<i data-lucide="info" class="w-3.5 h-3.5"></i> Geser lidi untuk mencapai sudut 90°`;
+            }
+            lucide.createIcons();
+        }
+
+        function build3DProtractorPlane(centerP, lineDir, lidiDir, currentAngleRad) {
+            const radius = 2.4;
+            
+            let planeNormal = new THREE.Vector3().crossVectors(lineDir, lidiDir);
+            if (planeNormal.lengthSq() < 0.0001) {
+                planeNormal = new THREE.Vector3(0, 1, 0);
+            } else {
+                planeNormal.normalize();
+            }
+
+            const planeGeo = new THREE.PlaneGeometry(radius * 2, radius);
+            const planeMat = new THREE.MeshBasicMaterial({
+                map: protractorTexture,
+                transparent: true,
+                side: THREE.DoubleSide,
+                depthWrite: false
+            });
+
+            const protractorMesh = new THREE.Mesh(planeGeo, planeMat);
+
+            const perpInPlane = new THREE.Vector3().crossVectors(planeNormal, lineDir).normalize();
+            const rotMatrix = new THREE.Matrix4();
+            rotMatrix.makeBasis(lineDir, perpInPlane, planeNormal);
+            protractorMesh.rotation.setFromRotationMatrix(rotMatrix);
+
+            const offset = perpInPlane.clone().multiplyScalar(radius / 2);
+            protractorMesh.position.copy(centerP).add(offset);
+
+            protractorGroup.add(protractorMesh);
+
+            // Needle Line
+            const needleLen = radius * 0.9;
+            const needleEnd = centerP.clone().addScaledVector(lidiDir, needleLen);
+            const needleGeo = new THREE.BufferGeometry().setFromPoints([centerP, needleEnd]);
+            const needleMat = new THREE.LineBasicMaterial({ color: 0xdc2626, linewidth: 4 });
+            const needleLine = new THREE.Line(needleGeo, needleMat);
+            protractorGroup.add(needleLine);
+        }
+
+        function drawPerpendicularSquare(centerP, dirA, dirB) {
+            const size = 0.5;
+            const v1 = dirA.clone().multiplyScalar(size);
+            const v2 = dirB.clone().multiplyScalar(size);
+
+            const p1 = centerP.clone().add(v1);
+            const p2 = centerP.clone().add(v1).add(v2);
+            const p3 = centerP.clone().add(v2);
+
+            const squareGeo = new THREE.BufferGeometry().setFromPoints([centerP, p1, p2, p3, centerP]);
+            const squareMat = new THREE.LineBasicMaterial({ color: 0x10b981, linewidth: 4 });
+            const squareMesh = new THREE.Line(squareGeo, squareMat);
+            protractorGroup.add(squareMesh);
+        }
+
+        function snapToPerpendicular() {
+            const startPt = points[activeStartPtKey];
+            if (!startPt) return;
+
+            if (currentMode === 'garis') {
+                const p1Key = activeTargetKey.charAt(0);
+                const p2Key = activeTargetKey.charAt(1);
+                const P1 = points[p1Key];
+                const P2 = points[p2Key];
+
+                const lineVec = new THREE.Vector3().subVectors(P2, P1);
+                const startVec = new THREE.Vector3().subVectors(startPt, P1);
+
+                const t = startVec.dot(lineVec) / lineVec.lengthSq();
+                const clampedT = Math.max(0, Math.min(1, t));
+
+                document.getElementById('lidiSlider').value = Math.round(clampedT * 100);
+            } else {
+                const quadKeys = activeTargetKey.split('');
+                const P0 = points[quadKeys[0]];
+                const P1 = points[quadKeys[1]];
+                const P3 = points[quadKeys[3]];
+
+                const vU = new THREE.Vector3().subVectors(P1, P0);
+                const vV = new THREE.Vector3().subVectors(P3, P0);
+
+                const vStart = new THREE.Vector3().subVectors(startPt, P0);
+
+                const u = Math.max(0, Math.min(1, vStart.dot(vU) / vU.lengthSq()));
+                const v = Math.max(0, Math.min(1, vStart.dot(vV) / vV.lengthSq()));
+
+                document.getElementById('lidiSlider').value = Math.round(u * 100);
+                document.getElementById('lidiSlider2').value = Math.round(v * 100);
+            }
+
+            onSliderMove();
+        }
+
+        function onWindowResize() {
+            const container = document.getElementById('canvas-container');
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        window.onload = () => {
+            initScene();
+            lucide.createIcons();
+        };
+    </script>
+</body>
+</html>
